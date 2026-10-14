@@ -21,42 +21,53 @@ Agus tiene **más de 2 meses de entrenamientos registrados** en el navegador de 
 
 ---
 
-## 2. Estado actual de la app (v4) — verificalo leyendo el código
+## 2. Estado actual de la app (v5, desde la Fase 0) — verificalo leyendo el código
 
 **Hosting:** GitHub Pages, repo `Agusferra1/Gym-Log`, rama `main`, carpeta raíz. Sin build: archivos estáticos.
 
 **Archivos:**
-- `index.html` — toda la app: HTML + CSS + JS inline (~700 líneas).
+- `index.html` — HTML + CSS.
+- `rutina.js` — la rutina (`PLAN`), las variantes (`ALT`) y los tipos de peso (`EQ`). Sumar ejercicios o alternativas = editar acá.
+- `datos.js` — formato v5, migración v4 → v5, verificación de la migración, guardar/cargar e interpretar exportaciones.
+- `app.js` — interfaz y lógica de pantalla.
+- `pruebas/probar-migracion.js` — `node pruebas/probar-migracion.js export.json` prueba la migración con una exportación real. **Nunca subas exportaciones reales al repo (es público).**
 - `manifest.json` — PWA instalable.
-- `sw.js` — service worker **cache-first**, cache llamado `gymlog-v4`.
+- `sw.js` — service worker **cache-first**, cache llamado `gymlog-v5`.
 - `icon-192.png`, `icon-512.png`
 - `README.md` (no se usa)
 
-**⚠️ Service worker:** como es cache-first, **cada vez que subas cambios tenés que subir el número de versión del cache en `sw.js`** (`gymlog-v4` → `gymlog-v5`, etc.). Si no, el celu sigue mostrando la versión vieja. Avisale a Agus que después de cada actualización cierre la app y la vuelva a abrir.
+**⚠️ Service worker:** como es cache-first, **cada vez que subas cambios tenés que subir el número de versión del cache en `sw.js`** (`gymlog-v5` → `gymlog-v6`, etc.) y agregar a `ASSETS` cualquier archivo nuevo. Si no, el celu sigue mostrando la versión vieja. Avisale a Agus que después de cada actualización cierre la app y la vuelva a abrir.
 
-**Almacenamiento:** `localStorage`, clave `gymlog.v3` (sí, v3: se mantuvo a propósito). Formato:
+**Almacenamiento:** `localStorage`, clave `gymlog.v5`. Formato:
 
 ```js
 {
-  cycle: 3,                         // ciclo actual seleccionado
-  v: 4,
-  data: {
-    "c1d1": {                       // c{ciclo}d{día 1|2|3}
-      done: true,                   // sesión cerrada
+  v: 5,
+  ciclo: 7,                          // ciclo actual seleccionado
+  sesiones: {
+    "c6d1": {                        // c{ciclo}d{día 1|2|3}
+      done: true,                    // sesión cerrada
+      fecha: "2026-10-14",           // se anota al marcar la primera serie; null en sesiones viejas (no inventar)
+      nota: "texto libre",
       ex: {
-        "a1": [                     // ID de ejercicio → array de series
-          { w: "40", r: 10, d: true }   // w: peso (string), r: reps (string o número), d: serie marcada
-        ]
+        "a1": {                      // ID del ejercicio de la rutina (lugar en el día)
+          variante: "a1",            // qué se hizo: el mismo ID = original; "a1.algo" = alternativa (ALT)
+          series: [ { w: "40", r: 10, d: true } ]   // w: peso (string), r: reps (string o número), d: marcada
+        }
       }
     }
   },
-  notes: { "c1d1": "texto libre" }
+  misEjercicios: {},                 // alternativas propias (Fase 1)
+  medidas: [],                       // medidas corporales (Fase 2)
+  objetivos: {}                      // objetivos (Fase 2)
 }
 ```
 
-Ya existe una migración que convierte claves viejas `c1dA/B/C` → `c1d1/2/3`. Mantenela.
-
-**No se guardan fechas.** Las sesiones están indexadas por ciclo, no por día del calendario. (Importante para la fase de objetivos semanales.)
+- Las sesiones vacías (sin series, sin nota, sin fecha, sin cerrar) no se guardan.
+- **Formato viejo (v4):** clave `gymlog.v3`, `{cycle, v:4, data:{c1d1:{done, ex:{a1:[series]}}}, notes:{c1d1:"..."}}`. Al abrir, si no existe `gymlog.v5`, se migra automáticamente y se verifica que no falte ninguna serie, nota ni sesión cerrada; si algo no cierra, la app no guarda nada. **`gymlog.v3` nunca se borra ni se modifica** (respaldo). La migración también convierte claves viejas `c1dA/B/C` → `c1d1/2/3`.
+- Restaurar acepta archivo o texto, en formato v4 o v5; antes de pisar, guarda lo que había en `gymlog.v5.antes-de-restaurar`.
+- Exportar: "Enviar mis datos" (menú de compartir de Android), "Descargar archivo" y "Copiar como texto". El archivo es `.txt` porque Android no deja compartir `.json`. **El celu tiene límite para copiar texto largo**: preferir siempre el archivo.
+- Historial de Agus corregido con sus notas: ciclo 4 día 1 el remo fue en máquina (`a2.lowrow`); ciclo 5 día 1 en vez de goblet hizo extensión de piernas (`a3.legext`).
 
 **Lógica de sugerencia actual:** compara la serie N de un ejercicio con la serie N del mismo día en el ciclo anterior:
 - reps ≥ tope del rango → "Subí 2,5 kg"
@@ -144,6 +155,7 @@ Ejercicios con `t: 1` son por tiempo (segundos) y no tienen peso.
 - Cada ejercicio muestra un botón "Cambiar ejercicio" con 2-4 alternativas **del mismo patrón de movimiento**.
 - La app guarda **qué variante se hizo en cada sesión**. La sugerencia de peso y el historial se calculan **por variante** (no comparar press banca con flexiones).
 - Permitir agregar una alternativa propia escribiendo el nombre y eligiendo su tipo de peso.
+- **Decidido con Agus:** el cambio dura **solo esa sesión**; la siguiente vuelve al original. Cada alternativa tiene su propio botón "▶ ver técnica". Sugerencia e historial: usar la última vez que se hizo **esa variante**.
 - Alternativas sugeridas (revisalas, podés ajustarlas):
 
 | Original | Alternativas |
@@ -209,14 +221,9 @@ Ejercicios con `t: 1` son por tiempo (segundos) y no tienen peso.
 - Datos actuales de referencia de Agus (pre-cargalos solo si él confirma): altura 180 cm, muñeca 18 cm, envergadura 170 cm, hombros 123 cm, cintura 101 cm, peso 85,4 kg y 24,4 % grasa (21/08/2026).
 - Aclaración visible: la balanza de bioimpedancia varía bastante día a día. Recomendar medirse siempre igual (en ayunas, misma hora) y mirar la **tendencia**, no el número suelto.
 
-### FASE 3 · Perfiles para amigos
+### FASE 3 · Perfiles para amigos — DESCARTADA
 
-**Contexto importante:** los datos viven en el navegador de cada celular. Si un amigo abre el link en **su** teléfono, ya tiene sus propios datos y no toca los de Agus. Esto ya funciona hoy.
-
-Lo que hay que agregar:
-- **Varios perfiles en un mismo dispositivo**: selector de perfil, cada uno con sus datos, medidas, objetivos y notas. Los datos actuales de Agus se migran a un perfil "Agus".
-- Exportar / importar **por perfil**.
-- Cada perfil arranca con la misma rutina base; las alternativas elegidas son por perfil.
+**Decidido con Agus:** no hacen falta perfiles. Nadie más usa su celu; cada amigo instala la app en **su** teléfono y tiene sus propios datos (eso ya funciona). No agregar selector de perfiles salvo que él lo pida.
 
 **Fuera de alcance salvo que Agus lo pida explícitamente:** cuentas con login, sincronización en la nube, ver el progreso de otros. Si lo pide, primero explicale los costos (servidor, privacidad de los datos de sus amigos, mantenimiento) y las opciones, antes de escribir código.
 
