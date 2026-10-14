@@ -6,7 +6,8 @@ const REST=150;   /* 2:30 de descanso; con "+30s" llegás a 3:00 */
 let S=nuevoEstado();
 let dia=0;
 let openEx=null, saveState="ok", bloqueado=false, toastT=null, sheet=null;
-let timer={on:false,left:0,id:null};
+let timer={on:false,end:0,left:0,id:null,avisado:false};
+let audioCtx=null, wakeLock=null;
 
 const blank=n=>Array.from({length:n},()=>({w:"",r:"",d:false}));
 const sk=(c,d)=>"c"+c+"d"+PLAN[d].k;
@@ -106,17 +107,62 @@ function exSuggest(ex){
 }
 
 /* ═══════════ TIMER ═══════════ */
-function startTimer(){
-  clearInterval(timer.id); timer.on=true; timer.left=REST;
-  timer.id=setInterval(()=>{
-    timer.left--;
-    if(timer.left===0&&navigator.vibrate) navigator.vibrate([180,90,180]);
-    if(timer.left<=-30) stopTimer(); else paintTimer();
-  },1000);
-  render();
+/* El tiempo se calcula contra la hora real: si el celu congela la app, al volver muestra lo correcto */
+function tick(){
+  timer.left=Math.ceil((timer.end-Date.now())/1000);
+  if(timer.left<=0) avisar();
+  if(timer.left<=-60&&!document.hidden) stopTimer(); else paintTimer();
 }
-function stopTimer(){clearInterval(timer.id);timer.on=false;render();}
-function addTimer(s){timer.left+=s;paintTimer();}
+function startTimer(){
+  clearInterval(timer.id); prepararSonido();
+  timer.on=true; timer.avisado=false; timer.end=Date.now()+REST*1000; timer.left=REST;
+  timer.id=setInterval(tick,500);
+  mantenerPantalla(); render();
+}
+function stopTimer(){clearInterval(timer.id);timer.on=false;soltarPantalla();render();}
+function addTimer(s){timer.end+=s*1000; if(timer.end>Date.now()) timer.avisado=false; tick();}
+
+/* ── aviso al llegar a 0: vibración + pitido (generado, no hace falta archivo de audio) ── */
+function prepararSonido(){
+  /* se llama al tocar ✓: Android solo deja sonar si el sonido se "despierta" con un toque */
+  try{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==="suspended") audioCtx.resume();
+  }catch(e){}
+}
+function pitido(){
+  if(!audioCtx) return;
+  try{
+    if(audioCtx.state==="suspended") audioCtx.resume();
+    const t0=audioCtx.currentTime+0.05;
+    [0,0.3,0.6].forEach((d,i)=>{
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type="sine"; o.frequency.value=i===2?1320:880;
+      g.gain.setValueAtTime(0.0001,t0+d);
+      g.gain.exponentialRampToValueAtTime(0.6,t0+d+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+d+0.22);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0+d); o.stop(t0+d+0.25);
+    });
+  }catch(e){}
+}
+function avisar(){
+  if(timer.avisado) return;
+  timer.avisado=true;
+  if(navigator.vibrate) navigator.vibrate([400,150,400,150,400]);
+  pitido();
+}
+
+/* ── pantalla prendida mientras corre el descanso, así el celu no se bloquea ── */
+async function mantenerPantalla(){
+  try{
+    if("wakeLock" in navigator&&!wakeLock&&!document.hidden){
+      wakeLock=await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release",()=>{wakeLock=null;});
+    }
+  }catch(e){}
+}
+function soltarPantalla(){if(wakeLock){wakeLock.release().catch(()=>{});wakeLock=null;}}
 function paintTimer(){
   const el=document.getElementById("tclock"); if(!el)return;
   const neg=timer.left<0,v=Math.abs(timer.left);
@@ -506,4 +552,7 @@ if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
 window.addEventListener("beforeunload",save);
-document.addEventListener("visibilitychange",()=>{if(document.hidden)save();});
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden){save();return;}
+  if(timer.on){mantenerPantalla(); tick();}   /* al volver: tiempo correcto y, si ya pasó, avisa */
+});

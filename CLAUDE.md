@@ -32,11 +32,11 @@ Agus tiene **más de 2 meses de entrenamientos registrados** en el navegador de 
 - `app.js` — interfaz y lógica de pantalla.
 - `pruebas/probar-migracion.js` — `node pruebas/probar-migracion.js export.json` prueba la migración con una exportación real. **Nunca subas exportaciones reales al repo (es público).**
 - `manifest.json` — PWA instalable.
-- `sw.js` — service worker **cache-first**, cache llamado `gymlog-v5`.
+- `sw.js` — service worker **cache-first**, cache llamado `gymlog-v6`.
 - `icon-192.png`, `icon-512.png`
 - `README.md` (no se usa)
 
-**⚠️ Service worker:** como es cache-first, **cada vez que subas cambios tenés que subir el número de versión del cache en `sw.js`** (`gymlog-v5` → `gymlog-v6`, etc.) y agregar a `ASSETS` cualquier archivo nuevo. Si no, el celu sigue mostrando la versión vieja. Avisale a Agus que después de cada actualización cierre la app y la vuelva a abrir.
+**⚠️ Service worker:** como es cache-first, **cada vez que subas cambios tenés que subir el número de versión del cache en `sw.js`** (`gymlog-v6` → `gymlog-v7`, etc.) y agregar a `ASSETS` cualquier archivo nuevo. Si no, el celu sigue mostrando la versión vieja. Avisale a Agus que después de cada actualización cierre la app y la vuelva a abrir.
 
 **Almacenamiento:** `localStorage`, clave `gymlog.v5`. Formato:
 
@@ -87,7 +87,7 @@ Esto es **doble progresión** y está bien: no lo cambies.
 
 Ejercicios con `t: 1` son por tiempo (segundos) y no tienen peso.
 
-**Otras funciones existentes:** anillo de progreso de la sesión, volumen (peso × reps) del día y del ciclo con % vs ciclo anterior, historial del peso máximo por ejercicio (últimos 6 ciclos), panel de progreso 📊, timer de descanso de 2:30 con vibración (botón +30s para llegar a 3:00), notas por sesión, exportar/importar, link a YouTube con la técnica de cada ejercicio.
+**Otras funciones existentes:** anillo de progreso de la sesión, volumen (peso × reps) del día y del ciclo con % vs ciclo anterior, historial del peso máximo por ejercicio (últimos 6 ciclos), panel de progreso 📊, timer de descanso de 2:30 (botón +30s para llegar a 3:00): cuenta contra la hora real, mantiene la pantalla prendida mientras corre (Wake Lock) y al llegar a 0 vibra y hace un pitido generado con Web Audio (sin archivo). Con el celu bloqueado una web no puede sonar: por eso se mantiene la pantalla prendida, notas por sesión, exportar/importar, link a YouTube con la técnica de cada ejercicio.
 
 ---
 
