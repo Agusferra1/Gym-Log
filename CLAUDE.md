@@ -57,7 +57,8 @@ Agus tiene **más de 2 meses de entrenamientos registrados** en el navegador de 
       }
     }
   },
-  misEjercicios: {},                 // alternativas propias (Fase 1)
+  misEjercicios: {},                 // alternativas propias: { "a1.u…": {of, n, eq} }
+  fijos: {},                         // alternativas fijas: { "a1": "a1.maquina" } (las sesiones nuevas arrancan con esa)
   medidas: [],                       // medidas corporales (Fase 2)
   objetivos: {}                      // objetivos (Fase 2)
 }
@@ -156,7 +157,7 @@ Ejercicios con `t: 1` son por tiempo (segundos) y no tienen peso.
 - Cada ejercicio muestra un botón "Cambiar ejercicio" con 2-4 alternativas **del mismo patrón de movimiento**.
 - La app guarda **qué variante se hizo en cada sesión**. La sugerencia de peso y el historial se calculan **por variante** (no comparar press banca con flexiones).
 - Permitir agregar una alternativa propia escribiendo el nombre y eligiendo su tipo de peso.
-- **Decidido con Agus:** el cambio dura **solo esa sesión**; la siguiente vuelve al original. Cada alternativa tiene su propio botón "▶ ver técnica". Sugerencia e historial: usar la última vez que se hizo **esa variante**.
+- **Decidido con Agus (opción C):** por defecto el cambio dura **solo esa sesión**; con la casilla "Dejar fijo para las próximas sesiones" queda fijo (`fijos`) hasta que elija el original con la casilla tildada. Cada alternativa tiene su propio botón "▶ ver técnica". Sugerencia e historial: usar la última vez que se hizo **esa variante**.
 - Alternativas sugeridas (revisalas, podés ajustarlas):
 
 | Original | Alternativas |

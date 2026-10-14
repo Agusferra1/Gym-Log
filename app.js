@@ -5,7 +5,7 @@ const REST=150;   /* 2:30 de descanso; con "+30s" llegás a 3:00 */
 
 let S=nuevoEstado();
 let dia=0;
-let swapEx=null, nuevoEq="stack";
+let swapEx=null, nuevoEq="stack", fijar=false;
 let openEx=null, saveState="ok", bloqueado=false, toastT=null, sheet=null;
 let timer={on:false,end:0,left:0,id:null,avisado:false};
 let audioCtx=null, wakeLock=null;
@@ -38,7 +38,8 @@ function save(){
 function sess(c,d){const k=sk(c,d); if(!S.sesiones[k])S.sesiones[k]=nuevaSesion(); return S.sesiones[k];}
 function entry(c,d,ex){
   const s=sess(c,d);
-  if(!s.ex[ex.id]) s.ex[ex.id]={variante:ex.id,series:blank(ex.s)};
+  /* desde el ciclo actual en adelante arranca con la alternativa fija, si hay; los ciclos viejos, con el original */
+  if(!s.ex[ex.id]) s.ex[ex.id]={variante:(c>=S.ciclo&&S.fijos[ex.id])||ex.id,series:blank(ex.s)};
   const e=s.ex[ex.id];
   /* si faltan series se agregan; nunca se borran las que ya hay */
   while(e.series.length<ex.s) e.series.push({w:"",r:"",d:false});
@@ -222,14 +223,32 @@ function markSession(){
   toast(s.done?"Sesión cerrada":"Sesión reabierta");
 }
 /* ── cambiar ejercicio (dura solo esta sesión; la próxima vuelve al original) ── */
-function abrirCambio(id){swapEx=id; nuevoEq="stack"; sheet="swap"; render();}
+function abrirCambio(id){
+  swapEx=id; nuevoEq="stack";
+  const ex=exOf(id); fijar=!!S.fijos[id]&&S.fijos[id]===varDe(S.ciclo,dia,ex);
+  sheet="swap"; render();
+}
+/* Deja (o saca) una alternativa fija para las próximas sesiones */
+function aplicarFijo(ex,vid){
+  if(vid===ex.id) delete S.fijos[ex.id]; else S.fijos[ex.id]=vid;
+  const def=S.fijos[ex.id]||ex.id;
+  /* sesiones futuras que ya estaban abiertas pero sin series: se acomodan */
+  Object.entries(S.sesiones).forEach(([k,s])=>{
+    const m=k.match(/^c(\d+)d/), e=s.ex[ex.id];
+    if(m&&+m[1]>S.ciclo&&e&&!e.series.some(x=>x.d||x.w!==""||x.r!=="")) e.variante=def;
+  });
+}
 function elegirVariante(vid){
   const ex=exOf(swapEx), e=entry(S.ciclo,dia,ex);
   if(e.variante!==vid&&e.series.some(x=>x.d)&&
      !confirm("Ya marcaste series de este ejercicio. ¿Las pasamos al ejercicio nuevo?")) return;
-  e.variante=vid; save();
+  e.variante=vid;
+  const eraFijo=S.fijos[ex.id];
+  if(fijar) aplicarFijo(ex,vid);
+  save();
   sheet=null; openEx=ex.id; render();
-  toast(vid===ex.id?"Volviste al original":"Ejercicio cambiado por hoy");
+  toast(fijar&&vid!==ex.id?"Queda fijo hasta que lo cambies":fijar&&eraFijo?"Volviste al original, para siempre":
+    vid===ex.id?"Volviste al original por hoy":"Ejercicio cambiado por hoy");
 }
 function agregarPropio(){
   const inp=document.getElementById("nuevonombre"), n=inp?inp.value.trim():"";
@@ -251,13 +270,18 @@ function hojaCambio(){
   const actual=varDe(S.ciclo,dia,ex);
   let f=`<div class="backdrop" onclick="if(event.target===this)closeSheet()"><div class="sheet">
     <h2 class="grad-txt">CAMBIAR · ${esc(ex.n.toUpperCase())}</h2>
-    <p>Mismo músculo, otra máquina u otro elemento. Cada opción tiene su propio historial y su sugerencia de peso. El cambio es solo por hoy.</p>`;
+    <p>Mismo músculo, otra máquina u otro elemento. Cada opción tiene su propio historial y su sugerencia de peso.</p>
+    <button class="fijar ${fijar?"on":""}" onclick="fijar=!fijar;this.classList.toggle('on',fijar);this.querySelector('.fchk').textContent=fijar?'✓':''">
+      <span class="fchk">${fijar?"✓":""}</span>
+      <span><b>Dejar fijo para las próximas sesiones</b><br>
+      <span class="fsub">${S.fijos[ex.id]?"Ahora está fijo: "+esc(info(ex,S.fijos[ex.id]).n)+". Elegí el original con esto tildado para sacarlo.":"Sin tildar, el cambio es solo por hoy."}</span></span>
+    </button>`;
   opciones(ex).forEach(vid=>{
     const it=info(ex,vid), cur=vid===actual, eq=EQ[it.eq]||EQ.stack;
     f+=`<div class="opt ${cur?"sel":""}">
       <div class="oinfo">
         <div class="on">${esc(it.n)}</div>
-        <div class="om">${vid===ex.id?`<span class="orig">ORIGINAL</span> · `:it.propio?"PROPIO · ":""}${it.t?"SEGUNDOS":eq.lbl} · ${ultimoTxt(ex,vid)}</div>
+        <div class="om">${vid===ex.id?`<span class="orig">ORIGINAL</span> · `:it.propio?"PROPIO · ":""}${S.fijos[ex.id]===vid?`<span class="orig">📌 FIJO</span> · `:""}${it.t?"SEGUNDOS":eq.lbl} · ${ultimoTxt(ex,vid)}</div>
       </div>
       <div class="obtns">
         <a class="mini" target="_blank" rel="noopener"
@@ -447,7 +471,7 @@ function render(){
       <button class="chead" onclick="openEx=${isOpen?"null":"'"+ex.id+"'"};render()">
         <div style="flex:1;min-width:0">
           <div class="cname">${esc(it.n)}</div>
-          ${vid!==ex.id?`<div class="swapnote">⇄ en lugar de ${esc(ex.n)}</div>`:""}
+          ${vid!==ex.id?`<div class="swapnote">${S.fijos[ex.id]===vid?"📌 fijo":"⇄ hoy"} · en lugar de ${esc(ex.n)}</div>`:""}
           <div class="cmeta">${range} · ${it.t?"PESO CORPORAL":eq.lbl}</div>
         </div>
         <div class="cright">
