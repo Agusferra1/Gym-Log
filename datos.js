@@ -6,7 +6,7 @@
        "c6d1":{ done:true, fecha:"2026-10-14" | null, nota:"texto",
                 ex:{ "a1":{ variante:"a1", series:[{w:"15",r:"12",d:true}] } } }
      },
-     misEjercicios:{}, medidas:[], objetivos:{}
+     misEjercicios:{}, fijos:{ "a1":"a1.maquina" }, medidas:[], objetivos:{}
    }
    La clave vieja "gymlog.v3" (formato v4) NUNCA se borra ni se modifica: queda de respaldo. */
 
@@ -21,7 +21,7 @@ const CORRECCIONES=[
  {ses:"c5d1",ex:"a3",variante:"a3.legext",nota:/leg\s*exten/i}
 ];
 
-function nuevoEstado(){return {v:5,ciclo:1,sesiones:{},misEjercicios:{},medidas:[],objetivos:{}};}
+function nuevoEstado(){return {v:5,ciclo:1,sesiones:{},misEjercicios:{},fijos:{},medidas:[],objetivos:{}};}
 function nuevaSesion(){return {done:false,fecha:null,nota:"",ex:{}};}
 
 const vacio=x=>x===""||x==null;
@@ -29,17 +29,19 @@ const serieConDatos=x=>!!x&&(!vacio(x.w)||!vacio(x.r)||x.d===true);
 const tieneNota=t=>typeof t==="string"&&t.trim()!=="";
 
 /* Una sesión vacía no tiene nada que valga la pena guardar */
-function sesionVacia(s){
+/* fijos: alternativas que el usuario dejó fijas (una sesión que solo tiene esas no cuenta como dato) */
+function sesionVacia(s,fijos){
+  fijos=fijos||{};
   if(!s) return true;
   if(s.done||s.fecha||tieneNota(s.nota)) return false;
   return !Object.entries(s.ex||{}).some(([id,e])=>
-    (e.variante&&e.variante!==id)||(e.series||[]).some(serieConDatos));
+    (e.variante&&e.variante!==(fijos[id]||id))||(e.series||[]).some(serieConDatos));
 }
 
 /* Copia sin las sesiones vacías (las que crea la app al navegar ciclos) */
 function compactar(st){
   const out=Object.assign({},st,{sesiones:{}});
-  Object.entries(st.sesiones||{}).forEach(([k,s])=>{if(!sesionVacia(s)) out.sesiones[k]=s;});
+  Object.entries(st.sesiones||{}).forEach(([k,s])=>{if(!sesionVacia(s,st.fijos)) out.sesiones[k]=s;});
   return out;
 }
 
@@ -58,6 +60,7 @@ function normalizarV5(p){
   });
   st.sesiones=ses;
   if(!st.misEjercicios||typeof st.misEjercicios!=="object") st.misEjercicios={};
+  if(!st.fijos||typeof st.fijos!=="object") st.fijos={};
   if(!Array.isArray(st.medidas)) st.medidas=[];
   if(!st.objetivos||typeof st.objetivos!=="object") st.objetivos={};
   return st;
