@@ -1,7 +1,7 @@
 /* ═══════════ GYM LOG · interfaz ═══════════
    Rutina en rutina.js · formato de datos y migración en datos.js */
 
-const REST=90;
+const REST=150;   /* 2:30 de descanso; con "+30s" llegás a 3:00 */
 
 let S=nuevoEstado();
 let dia=0;

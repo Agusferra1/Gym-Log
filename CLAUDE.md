@@ -87,7 +87,7 @@ Esto es **doble progresión** y está bien: no lo cambies.
 
 Ejercicios con `t: 1` son por tiempo (segundos) y no tienen peso.
 
-**Otras funciones existentes:** anillo de progreso de la sesión, volumen (peso × reps) del día y del ciclo con % vs ciclo anterior, historial del peso máximo por ejercicio (últimos 6 ciclos), panel de progreso 📊, timer de descanso de 90 s con vibración, notas por sesión, exportar/importar, link a YouTube con la técnica de cada ejercicio.
+**Otras funciones existentes:** anillo de progreso de la sesión, volumen (peso × reps) del día y del ciclo con % vs ciclo anterior, historial del peso máximo por ejercicio (últimos 6 ciclos), panel de progreso 📊, timer de descanso de 2:30 con vibración (botón +30s para llegar a 3:00), notas por sesión, exportar/importar, link a YouTube con la técnica de cada ejercicio.
 
 ---
 
@@ -197,8 +197,8 @@ Ejercicios con `t: 1` son por tiempo (segundos) y no tienen peso.
 - Solo **frases originales** escritas por vos o de **autores clásicos de dominio público** (Séneca, Marco Aurelio, Epicteto, etc.). Nada de citas de libros, películas o personas actuales.
 - Tono: directo, sobre constancia y disciplina, sin cursilería.
 
-**1.6 Descanso diferenciado (confirmar con Agus)**
-- Se le recomendó 2-3 min de descanso en el compuesto principal de cada día y 90 s en el resto. Preguntale si lo quiere antes de implementarlo.
+**1.6 Descanso — RESUELTO**
+- Agus descansa 2:30 a 3 min en todos los ejercicios. El timer arranca en 2:30 (`REST` en `app.js`) y con "+30s" llega a 3:00. No diferenciar por ejercicio salvo que él lo pida.
 
 ### FASE 2 · Estadísticas, objetivos y medidas
 
