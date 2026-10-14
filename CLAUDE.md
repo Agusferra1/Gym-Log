@@ -151,7 +151,8 @@ Ejercicios con `t: 1` son por tiempo (segundos) y no tienen peso.
 
 ### FASE 1 · Mejoras rápidas
 
-**1.1 Alternativas de ejercicios**
+**1.1 Alternativas de ejercicios — HECHO**
+- Implementado: botón "⇄ cambiar ejercicio" en cada tarjeta → hoja con original + `ALT` (en `rutina.js`) + `misEjercicios`, cada una con "▶ técnica" y "último: X kg · C#". Sugerencia e historial buscan la última vez que se hizo **esa variante** (`previo()` en `app.js`). Alternativas con `inv:1` (asistidas) sugieren bajar la asistencia. Core: "Plancha con peso" se reemplazó por "Plancha lateral" (el formato no guarda peso en ejercicios por tiempo).
 - Cada ejercicio muestra un botón "Cambiar ejercicio" con 2-4 alternativas **del mismo patrón de movimiento**.
 - La app guarda **qué variante se hizo en cada sesión**. La sugerencia de peso y el historial se calculan **por variante** (no comparar press banca con flexiones).
 - Permitir agregar una alternativa propia escribiendo el nombre y eligiendo su tipo de peso.

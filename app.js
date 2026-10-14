@@ -5,6 +5,7 @@ const REST=150;   /* 2:30 de descanso; con "+30s" llegás a 3:00 */
 
 let S=nuevoEstado();
 let dia=0;
+let swapEx=null, nuevoEq="stack";
 let openEx=null, saveState="ok", bloqueado=false, toastT=null, sheet=null;
 let timer={on:false,end:0,left:0,id:null,avisado:false};
 let audioCtx=null, wakeLock=null;
@@ -51,7 +52,22 @@ function info(ex,vid){
   if(!vid||vid===ex.id) return ex;
   const a=ALT[vid]||S.misEjercicios[vid];
   if(!a) return Object.assign({},ex,{n:ex.n+" (variante)"});
-  return Object.assign({},ex,{n:a.n,eq:a.eq||ex.eq,v:a.v||a.n,t:a.t?1:0});
+  return Object.assign({},ex,{n:a.n,eq:a.eq||ex.eq,v:a.v||a.n,t:a.t?1:0,
+    lo:a.lo||ex.lo,hi:a.hi||ex.hi,hint:a.hint,inv:a.inv?1:0,propio:!ALT[vid]});
+}
+/* Original + alternativas de la rutina + las que agregó el usuario */
+function opciones(ex){
+  return [ex.id,
+    ...Object.keys(ALT).filter(k=>ALT[k].of===ex.id),
+    ...Object.keys(S.misEjercicios).filter(k=>S.misEjercicios[k].of===ex.id)];
+}
+/* Última vez que se hizo esta variante, antes del ciclo actual (mismo día de la rutina) */
+function previo(ex,vid){
+  for(let c=S.ciclo-1;c>=1;c--){
+    const s=S.sesiones[sk(c,dia)], e=s&&s.ex[ex.id];
+    if(e&&(e.variante||ex.id)===vid&&e.series.some(x=>x.r!==""&&x.r!=null)) return {c,e};
+  }
+  return null;
 }
 
 /* ═══════════ MÉTRICAS ═══════════ */
@@ -59,8 +75,9 @@ function sessionVolume(c,d){
   const s=S.sesiones[sk(c,d)]; if(!s) return 0;
   let v=0;
   PLAN[d].ex.forEach(ex=>{
-    if(ex.t) return;                      /* los de tiempo no suman volumen */
-    ((s.ex[ex.id]||{}).series||[]).forEach(x=>{
+    const e=s.ex[ex.id]; if(!e) return;
+    if(info(ex,e.variante).t) return;     /* los de tiempo no suman volumen */
+    e.series.forEach(x=>{
       const w=parseFloat(x.w)||0, r=parseInt(x.r)||0;
       v += w*r;
     });
@@ -82,21 +99,22 @@ function exHistory(ex){
 
 /* ═══════════ SUGERENCIA (doble progresión) ═══════════ */
 function suggest(ex,si){
-  if(S.ciclo<2) return null;
-  const prev=S.sesiones[sk(S.ciclo-1,dia)];
-  if(!prev||!prev.ex[ex.id]) return null;
-  if((prev.ex[ex.id].variante||ex.id)!==varDe(S.ciclo,dia,ex)) return null;
-  const p=prev.ex[ex.id].series[si];
+  const vid=varDe(S.ciclo,dia,ex), pv=previo(ex,vid);
+  if(!pv) return null;
+  const p=pv.e.series[si];
   if(!p||p.r===""||p.r==null) return null;
   const w=parseFloat(p.w)||0, r=parseInt(p.r)||0;
-  const it=info(ex,varDe(S.ciclo,dia,ex));
+  const it=info(ex,vid), de=pv.c;
   if(it.t){
-    if(r>=ex.hi) return {t:"up",w:0,txt:"Llegaste a "+r+" s — mantenelo con buena forma"};
-    return {t:"dn",w:0,txt:"Buscá llegar a "+ex.hi+" s"};
+    if(r>=it.hi) return {t:"up",w:0,de,txt:"Llegaste a "+r+" s — mantenelo con buena forma"};
+    return {t:"dn",w:0,de,txt:"Buscá llegar a "+it.hi+" s"};
   }
-  if(r>=ex.hi) return {t:"up",w:w+2.5,txt:"Subí a "+fmt(w+2.5)+" kg — llegaste al tope"};
-  if(r>=ex.lo) return {t:"eq",w:w,txt:"Mantené "+fmt(w)+" kg — sumá reps"};
-  return {t:"dn",w:w,txt:"Mantené "+fmt(w)+" kg — recuperá el rango"};
+  if(r>=it.hi){
+    if(it.inv){const n=Math.max(0,w-2.5); return {t:"up",w:n,de,txt:"Bajá la asistencia a "+fmt(n)+" kg — llegaste al tope"};}
+    return {t:"up",w:w+2.5,de,txt:"Subí a "+fmt(w+2.5)+" kg — llegaste al tope"};
+  }
+  if(r>=it.lo) return {t:"eq",w:w,de,txt:"Mantené "+fmt(w)+" kg — sumá reps"};
+  return {t:"dn",w:w,de,txt:"Mantené "+fmt(w)+" kg — recuperá el rango"};
 }
 function exSuggest(ex){
   const all=[]; for(let i=0;i<ex.s;i++){const s=suggest(ex,i); if(s)all.push(s);}
@@ -189,7 +207,7 @@ function toggleDone(id,si){
   if(!was){
     const s=sess(S.ciclo,dia);
     if(!s.fecha) s.fecha=hoy();          /* la fecha queda al marcar la primera serie */
-    if(a[si].r==="") a[si].r=ex.lo;
+    if(a[si].r==="") a[si].r=it.lo;
     if(a[si].w===""&&it.eq!=="bw"&&!it.t){const sg=suggest(ex,si); if(sg)a[si].w=fmt(sg.w);}
   }
   save();
@@ -202,6 +220,63 @@ function copyDown(id){
 function markSession(){
   const s=sess(S.ciclo,dia); s.done=!s.done; save(); render();
   toast(s.done?"Sesión cerrada":"Sesión reabierta");
+}
+/* ── cambiar ejercicio (dura solo esta sesión; la próxima vuelve al original) ── */
+function abrirCambio(id){swapEx=id; nuevoEq="stack"; sheet="swap"; render();}
+function elegirVariante(vid){
+  const ex=exOf(swapEx), e=entry(S.ciclo,dia,ex);
+  if(e.variante!==vid&&e.series.some(x=>x.d)&&
+     !confirm("Ya marcaste series de este ejercicio. ¿Las pasamos al ejercicio nuevo?")) return;
+  e.variante=vid; save();
+  sheet=null; openEx=ex.id; render();
+  toast(vid===ex.id?"Volviste al original":"Ejercicio cambiado por hoy");
+}
+function agregarPropio(){
+  const inp=document.getElementById("nuevonombre"), n=inp?inp.value.trim():"";
+  if(!n){toast("Escribí el nombre del ejercicio",1);return;}
+  const ex=exOf(swapEx), id=ex.id+".u"+Date.now().toString(36);
+  S.misEjercicios[id]={of:ex.id,n:n.slice(0,60),eq:nuevoEq};
+  elegirVariante(id);
+}
+/* "último: 20 kg · C6" de cada opción */
+function ultimoTxt(ex,vid){
+  const pv=previo(ex,vid);
+  if(!pv) return "nunca hecho";
+  const it=info(ex,vid), top=pv.e.series.reduce((m,x)=>Math.max(m,parseFloat(x.w)||0),0);
+  const reps=pv.e.series.reduce((m,x)=>Math.max(m,parseInt(x.r)||0),0);
+  return "último: "+(it.t?reps+" s":top>0?fmt(top)+" kg":reps+" reps")+" · C"+pv.c;
+}
+function hojaCambio(){
+  const ex=exOf(swapEx); if(!ex) return "";
+  const actual=varDe(S.ciclo,dia,ex);
+  let f=`<div class="backdrop" onclick="if(event.target===this)closeSheet()"><div class="sheet">
+    <h2 class="grad-txt">CAMBIAR · ${esc(ex.n.toUpperCase())}</h2>
+    <p>Mismo músculo, otra máquina u otro elemento. Cada opción tiene su propio historial y su sugerencia de peso. El cambio es solo por hoy.</p>`;
+  opciones(ex).forEach(vid=>{
+    const it=info(ex,vid), cur=vid===actual, eq=EQ[it.eq]||EQ.stack;
+    f+=`<div class="opt ${cur?"sel":""}">
+      <div class="oinfo">
+        <div class="on">${esc(it.n)}</div>
+        <div class="om">${vid===ex.id?`<span class="orig">ORIGINAL</span> · `:it.propio?"PROPIO · ":""}${it.t?"SEGUNDOS":eq.lbl} · ${ultimoTxt(ex,vid)}</div>
+      </div>
+      <div class="obtns">
+        <a class="mini" target="_blank" rel="noopener"
+          href="https://www.youtube.com/results?search_query=${encodeURIComponent(it.v)}">▶ técnica</a>
+        ${cur?`<span class="pick cur">ACTUAL</span>`:`<button class="pick" onclick="elegirVariante('${vid}')">ELEGIR</button>`}
+      </div>
+    </div>`;
+  });
+  const eqs=[["side","UN LADO"],["db","UNA MANCUERNA"],["stack","LO QUE MARCA LA MÁQUINA"],["bw","EXTRA (CORPORAL)"]];
+  f+=`<div class="addform">
+      <div class="lbl" style="margin-top:0">¿NO ESTÁ? AGREGÁ OTRO</div>
+      <input id="nuevonombre" class="txtin" maxlength="60" placeholder="Ej: Press Hammer plano">
+      <div class="om" style="margin:2px 0 8px">¿QUÉ PESO ANOTÁS?</div>
+      <div class="eqs">${eqs.map(([k,l])=>`<button class="eqb ${nuevoEq===k?"s":""}" onclick="nuevoEq='${k}';document.querySelectorAll('.eqb').forEach(b=>b.classList.toggle('s',b===this))">${l}</button>`).join("")}</div>
+      <button class="sbtn primary" style="margin:12px 0 0" onclick="agregarPropio()">AGREGAR Y ELEGIR</button>
+    </div>
+    <button class="sbtn" style="margin-top:12px" onclick="closeSheet()">CERRAR</button>
+  </div></div>`;
+  return f;
 }
 function cambiarCiclo(d){
   if(S.ciclo+d<1) return;
@@ -346,7 +421,7 @@ function render(){
       <div class="k">VOLUMEN DE HOY</div>
       <div class="v grad-txt">${volNow.toLocaleString("es-AR")}</div>
       <div class="d ${volDelta==null?"flat":volDelta>0?"up":volDelta<0?"dn":"flat"}">
-        ${volDelta==null?"sin comparación aún":(volDelta>0?"▲ +":volDelta<0?"▼ ":"= ")+Math.abs(volDelta)+"% vs ciclo "+(S.ciclo-1)}
+        ${volNow===0?"todavía sin series":volDelta==null?"sin comparación aún":(volDelta>0?"▲ +":volDelta<0?"▼ ":"= ")+Math.abs(volDelta)+"% vs ciclo "+(S.ciclo-1)}
       </div>
     </div>
     <div class="volcard">
@@ -366,7 +441,7 @@ function render(){
     const eq=EQ[it.eq]||EQ.stack;
     const si=exSuggest(ex);
     const unit=it.t?"seg":"reps";
-    const range=ex.lo===ex.hi?`${ex.s}×${ex.lo} ${unit}`:`${ex.s}×${ex.lo}–${ex.hi} ${unit}`;
+    const range=it.lo===it.hi?`${ex.s}×${it.lo} ${unit}`:`${ex.s}×${it.lo}–${it.hi} ${unit}`;
 
     h+=`<div class="card ${(isOpen?"open ":"")+(nd>=a.length?"full ":nd>0?"touched ":"")}">
       <button class="chead" onclick="openEx=${isOpen?"null":"'"+ex.id+"'"};render()">
@@ -384,12 +459,12 @@ function render(){
 
     if(isOpen){
       h+=`<div class="cbody">`;
-      h+=`<div class="hint">↳ ${it.t?"Aguantá el tiempo objetivo con buena forma":eq.hint}</div>`;
+      h+=`<div class="hint">↳ ${it.hint||(it.t?"Aguantá el tiempo objetivo con buena forma":eq.hint)}</div>`;
 
       const s0=suggest(ex,0);
       h+=s0
-        ?`<div class="sugbox ${s0.t}">${s0.t==="up"?"↑":s0.t==="dn"?"↺":"="} ${esc(s0.txt)}</div>`
-        :`<div class="sugbox none">Sin datos del ciclo anterior — anotá tu referencia</div>`;
+        ?`<div class="sugbox ${s0.t}">${s0.t==="up"?"↑":s0.t==="dn"?"↺":"="} ${esc(s0.txt)}${s0.de!==S.ciclo-1?` <span class="sugde">· según ciclo ${s0.de}</span>`:""}</div>`
+        :`<div class="sugbox none">${vid!==ex.id?"Primera vez con este ejercicio":"Sin datos anteriores"} — anotá tu referencia</div>`;
 
       /* historial */
       if(!it.t){
@@ -425,7 +500,7 @@ function render(){
         <span class="c4"></span></div>`;
 
       a.forEach((st,i)=>{
-        const rv=parseInt(st.r)||0, low=rv>0&&rv<ex.lo;
+        const rv=parseInt(st.r)||0, low=rv>0&&rv<it.lo;
         h+=`<div class="srow ${st.d?"done":""}">
           <span class="snum">${i+1}</span>
           <div class="field">`;
@@ -438,7 +513,7 @@ function render(){
         h+=`</div><div class="field">
             <button class="stepbtn" onclick="stepR('${ex.id}',${i},-1)">−</button>
             <input class="numin ${st.r!==""?"set":""} ${low?"low":""}" inputmode="numeric"
-              placeholder="${ex.lo}" value="${esc(st.r)}"
+              placeholder="${it.lo}" value="${esc(st.r)}"
               onchange="setVal('${ex.id}',${i},'r',this.value)">
             <button class="stepbtn" onclick="stepR('${ex.id}',${i},1)">+</button>
           </div>
@@ -447,6 +522,7 @@ function render(){
       });
 
       h+=`<div class="rowtools">`;
+      h+=`<button class="tool swap" onclick="abrirCambio('${ex.id}')">⇄ ${vid!==ex.id?"cambiar / volver al original":"cambiar ejercicio"}</button>`;
       if(!it.t&&it.eq!=="bw") h+=`<button class="tool" onclick="copyDown('${ex.id}')">copiar peso a todas</button>`;
       h+=`<a class="tool link" target="_blank" rel="noopener"
         href="https://www.youtube.com/results?search_query=${encodeURIComponent(it.v)}">▶ ver técnica</a>`;
@@ -532,6 +608,8 @@ function render(){
     f+=`<button class="sbtn" style="margin-top:16px" onclick="closeSheet()">CERRAR</button>
     </div></div>`;
   }
+
+  if(sheet==="swap") f+=hojaCambio();
 
   if(sheet==="notes"){
     f+=`<div class="backdrop" onclick="if(event.target===this)closeSheet()"><div class="sheet">
