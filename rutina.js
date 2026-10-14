@@ -48,6 +48,8 @@ function alt(of,key,n,eq,v,extra){ALT[of+"."+key]=Object.assign({of,n,eq,v},extr
 alt("a1","mancuernas","Press banca con mancuernas","db","press banca con mancuernas tecnica");
 alt("a1","maquina","Press de pecho en máquina","stack","press de pecho en maquina sentado tecnica");
 alt("a1","polea","Press de pecho en polea (de pie)","stack","press de pecho en polea de pie tecnica");
+alt("a1","pecdeck","Peck deck (aperturas en máquina)","stack","peck deck aperturas en maquina pecho tecnica");
+alt("a1","cruces","Cruces en polea","stack","cruces en polea pecho tecnica");
 alt("a1","flexiones","Flexiones","bw","flexiones de brazos tecnica correcta");
 alt("a2","barra","Remo con barra","side","remo con barra inclinado tecnica");
 alt("a2","lowrow","Remo en máquina (Low Row)","stack","remo en maquina low row tecnica");
@@ -62,6 +64,8 @@ alt("a5","otrapolea","Extensión tríceps en otra polea","stack","extension tric
   {hint:"Cada polea marca distinto: esta tiene su propio historial"});
 alt("a5","frances","Press francés","side","press frances con barra z tecnica");
 alt("a5","overhead","Extensión sobre la cabeza con mancuerna","db","extension de triceps sobre la cabeza con mancuerna");
+alt("a5","diamante","Flexiones diamante (manos juntas)","bw","flexiones diamante triceps tecnica");
+alt("a5","patada","Patada de tríceps con mancuerna","db","patada de triceps con mancuerna kickback tecnica");
 alt("a5","fondosbanco","Fondos en banco","bw","fondos de triceps en banco tecnica");
 alt("a6","z","Curl con barra Z","side","curl de biceps con barra z tecnica");
 alt("a6","mancuernas","Curl con mancuernas","db","curl de biceps con mancuernas tecnica");
@@ -96,7 +100,8 @@ alt("c3","asistidos","Fondos asistidos en máquina","stack","fondos asistidos en
   {inv:1,hint:"Anotá la asistencia que marca la máquina (menos = más difícil)"});
 alt("c3","presscerrado","Press cerrado con barra","side","press de banca agarre cerrado tecnica");
 alt("c3","banco","Fondos en banco","bw","fondos de triceps en banco tecnica");
-alt("c4","sentado","Curl femoral sentado","stack","curl femoral sentado maquina tecnica");
+alt("c4","sentado","Curl femoral sentado","stack","curl femoral sentado maquina tecnica",
+  {hint:"Un estudio mostró más crecimiento de femorales sentado que acostado"});
 alt("c4","depie","Curl femoral de pie","stack","curl femoral de pie maquina tecnica");
 alt("c5","peckdeck","Peck deck inverso","stack","peck deck inverso deltoide posterior tecnica");
 alt("c5","pajaros","Pájaros con mancuernas","db","pajaros con mancuernas deltoide posterior tecnica");
@@ -108,6 +113,7 @@ alt("c6","polea","Curl en polea","stack","curl de biceps en polea tecnica");
 [["a7"],["b7"],["c7"]].forEach(([of])=>{
   alt(of,"crunchpolea","Crunch en polea","stack","crunch en polea arrodillado tecnica",{lo:10,hi:15,t:0});
   alt(of,"deadbug","Dead bug","bw","dead bug ejercicio abdomen tecnica",{lo:10,hi:15,t:0});
+  alt(of,"bicicleta","Crunch bicicleta","bw","crunch bicicleta abdomen tecnica",{lo:10,hi:15,t:0,hint:"Reps por lado"});
   alt(of,"paralelas","Elevación de piernas en paralelas","bw","elevacion de piernas en paralelas abdomen",{lo:10,hi:15,t:0});
   if(of!=="a7") alt(of,"plancha","Plancha frontal","bw","plancha frontal abdomen tecnica",{lo:45,hi:45,t:1});
   alt(of,"lateral","Plancha lateral","bw","plancha lateral abdomen tecnica",{lo:30,hi:45,t:1,hint:"Segundos por lado"});
